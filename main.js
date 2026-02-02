@@ -1,13 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // * EDIT THE CONFIG BEFORE APPLYING THIS CODE TO YOUR PROJECT
-  // - The number of comma-separated strings in this array MUST match the number of file upload fields you have in your project.
-  // - If specifying multiple file types for a single field, the string content itself should be comma-separated.
+  // ** EDIT THE CONFIG BEFORE APPLYING THIS CODE TO YOUR PROJECT.
+  // *
   const config = {
-    acceptAttributeValues: [".pdf"],
+    page0: [".pdf"],
   };
 
-  // * Click event callback
+  // *** FUNCTIONS ***
+
   function setInputAcceptAttribute(filetype) {
+    // ** Click event callback.
+    // *
     const fileUploadInput = document.querySelector(
       "form#form_file_upload div#f1_upload_form div input",
     );
@@ -16,15 +18,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // * Registers click events and mutation observers for each file field type
   function registerFileValidation(fileField, filetype) {
-    // * Case 1: Initial click event assignment
+    // * Registers click events and mutation observers for each file field type.
+    // *
+    // - Case 1: Initial click event assignment
     const uploadButton = fileField.querySelector(`a.fileuploadlink`);
     uploadButton.addEventListener("click", () => {
       setInputAcceptAttribute(filetype);
     });
-
-    // * Case 2: A file is already uploaded, but the user chooses to either upload a new file (in-place replacement) or delete the current one.
+    // - Case 2: A file is already uploaded, but the user chooses to either upload a new file (in-place replacement) or delete the current one.
     // - The upload link (a.fileuploadlink) re-renders when a file is uploaded, which removed the click event that we initially assigned it.
     // - Observe its parent div for that mutation, and add back the click event assignment to a.fileuploadlink.
     const observer = new MutationObserver((mutationList) => {
@@ -42,13 +44,12 @@ document.addEventListener("DOMContentLoaded", () => {
     observer.observe(parentContainerOfUploadButton, { childList: true });
   }
 
-  // * Execution and error handling
-  try {
-    const fileFields = document.querySelectorAll(`tr[fieldtype="file"]`);
-    const lengthDifference = fileFields.length - config.acceptAttributeValues.length;
+  function scanForErrors(fileFields, hasSingleFileType, currentAcceptAttributeValues) {
+    // ** Logs any errors to the console and halts the script.
+    // *
+    const lengthDifference = fileFields.length - currentAcceptAttributeValues.length;
     const absoluteDiff = Math.abs(lengthDifference);
-    const hasSingleFileType = config.acceptAttributeValues.length === 1;
-    if (!Array.isArray(config.acceptAttributeValues)) {
+    if (!Array.isArray(currentAcceptAttributeValues)) {
       throw new Error(
         `The 'acceptAttributeValues' value in the config must be an array [] of one or more strings. Correct formatting example: [".pdf"]`,
       );
@@ -61,20 +62,67 @@ document.addEventListener("DOMContentLoaded", () => {
       console.warn(
         `The number of strings you provided in 'acceptAttributeValues' exceeds the amount of file upload fields in your project by ${absoluteDiff}. The last ${absoluteDiff} file type(s) in your config will not be applied to any field of your project.`,
       );
-    } else if (config.acceptAttributeValues.length === 0) {
+    } else if (currentAcceptAttributeValues.length === 0) {
       throw new Error(
         `File types not specified in the config. Specify desired file types as a string within the 'acceptAttributeValues' array (example: [".pdf"]).`,
       );
-    } else if (hasSingleFileType && config.acceptAttributeValues[0] === "") {
+    } else if (hasSingleFileType && currentAcceptAttributeValues[0] === "") {
       throw new Error(
         `An empty string was passed in 'acceptAttributeValues'. Add a valid file type string to enforce file type uploads.`,
       );
     }
-    for (let i = 0; i < fileFields.length; i++) {
+  }
+
+  function configureSessionStorage(newFileFieldIds) {
+    // ** Interfaces with session storage to correctly enforece file types across multiple pages
+    // *
+    const fileFieldsPerPage = sessionStorage.getItem("fileFieldsPerPage");
+    if (fileFieldsPerPage === null) {
+      sessionStorage.setItem("fileFieldsPerPage", JSON.stringify([newFileFieldIds]));
+      return [newFileFieldIds];
+    } else {
+      // - Stored array exists, so check if the current page's file fields are already stored.
+      let storedFileFieldIds = JSON.parse(fileFieldsPerPage);
+      let foundMatch = false;
+      for (const idArray of storedFileFieldIds) {
+        if (JSON.stringify(idArray) === JSON.stringify(newFileFieldIds)) {
+          foundMatch = true;
+          break;
+        }
+      }
+      if (!foundMatch) {
+        // - Add new entry to storage.
+        storedFileFieldIds = [...storedFileFieldIds, newFileFieldIds];
+        sessionStorage.setItem("fileFieldsPerPage", JSON.stringify(storedFileFieldIds));
+      }
+      return storedFileFieldIds;
+    }
+  }
+
+  function determineSurveyPage(fileFieldIds, fieldIdsInSessionStorage) {
+    // ** Determines which survey page is active based on the encountered file fields.
+    // *
+    for (let i = 0; i < fieldIdsInSessionStorage.length; i++) {
+      if (JSON.stringify(fieldIdsInSessionStorage[i]) === JSON.stringify(fileFieldIds)) {
+        return i;
+      }
+    }
+  }
+
+  // *** EXECUTION ***
+  try {
+    const currentPageFileFields = document.querySelectorAll(`tr[fieldtype="file"]`);
+    const fileFieldIds = Array.from(currentPageFileFields).map((node) => node.id);
+    const fieldIdsInSessionStorage = configureSessionStorage(fileFieldIds);
+    const currentPageIndex = determineSurveyPage(fileFieldIds, fieldIdsInSessionStorage);
+    const currentAcceptAttributeValues = config[`page${currentPageIndex}`];
+    const hasSingleFileType = currentAcceptAttributeValues.length === 1;
+    scanForErrors(currentPageFileFields, hasSingleFileType, currentAcceptAttributeValues);
+    for (let i = 0; i < currentPageFileFields.length; i++) {
       const filetype = hasSingleFileType
-        ? config.acceptAttributeValues[0]
-        : config.acceptAttributeValues[i];
-      registerFileValidation(fileFields[i], filetype);
+        ? currentAcceptAttributeValues[0]
+        : currentAcceptAttributeValues[i];
+      registerFileValidation(currentPageFileFields[i], filetype);
     }
   } catch (e) {
     console.error(e);
