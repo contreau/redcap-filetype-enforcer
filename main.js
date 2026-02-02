@@ -44,31 +44,36 @@ document.addEventListener("DOMContentLoaded", () => {
     observer.observe(parentContainerOfUploadButton, { childList: true });
   }
 
-  function scanForErrors(fileFields, hasSingleFileType, currentAcceptAttributeValues) {
+  function scanForErrors(
+    fileFields,
+    hasSingleFileType,
+    currentAcceptAttributeValues,
+    currentPageIndex,
+  ) {
     // ** Logs any errors to the console and halts the script.
     // *
     const lengthDifference = fileFields.length - currentAcceptAttributeValues.length;
     const absoluteDiff = Math.abs(lengthDifference);
     if (!Array.isArray(currentAcceptAttributeValues)) {
       throw new Error(
-        `The 'acceptAttributeValues' value in the config must be an array [] of one or more strings. Correct formatting example: [".pdf"]`,
+        `The 'page${currentPageIndex}' value in the config must be an array [] of one or more strings. Correct formatting example: [".pdf"]`,
       );
     }
     if (lengthDifference > 0 && !hasSingleFileType) {
       throw new Error(
-        `The number of strings you provided in the 'acceptAttributeValues' is LESS than the amount of file upload fields in your project. Add ${absoluteDiff} more file type string(s) to the config.`,
+        `The number of strings you provided in the 'page${currentPageIndex}' array is LESS than the amount of file upload fields in your project. Add ${absoluteDiff} more file type string(s) to the config.`,
       );
     } else if (lengthDifference < 0) {
       console.warn(
-        `The number of strings you provided in 'acceptAttributeValues' exceeds the amount of file upload fields in your project by ${absoluteDiff}. The last ${absoluteDiff} file type(s) in your config will not be applied to any field of your project.`,
+        `The number of strings you provided in the 'page${currentPageIndex}' array exceeds the amount of file upload fields in your project by ${absoluteDiff}. The last ${absoluteDiff} file type(s) in the array will not be applied to any field of your project.`,
       );
     } else if (currentAcceptAttributeValues.length === 0) {
       throw new Error(
-        `File types not specified in the config. Specify desired file types as a string within the 'acceptAttributeValues' array (example: [".pdf"]).`,
+        `File types not specified in the config. Specify desired file types as a string within the 'page${currentPageIndex}' array (example: [".pdf"]).`,
       );
     } else if (hasSingleFileType && currentAcceptAttributeValues[0] === "") {
       throw new Error(
-        `An empty string was passed in 'acceptAttributeValues'. Add a valid file type string to enforce file type uploads.`,
+        `An empty string was passed in the 'page${currentPageIndex}' array. Add a valid file type string to enforce file type uploads.`,
       );
     }
   }
@@ -117,7 +122,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentPageIndex = determineSurveyPage(fileFieldIds, fieldIdsInSessionStorage);
     const currentAcceptAttributeValues = config[`page${currentPageIndex}`];
     const hasSingleFileType = currentAcceptAttributeValues.length === 1;
-    scanForErrors(currentPageFileFields, hasSingleFileType, currentAcceptAttributeValues);
+    scanForErrors(
+      currentPageFileFields,
+      hasSingleFileType,
+      currentAcceptAttributeValues,
+      currentPageIndex,
+    );
     for (let i = 0; i < currentPageFileFields.length; i++) {
       const filetype = hasSingleFileType
         ? currentAcceptAttributeValues[0]
