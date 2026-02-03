@@ -79,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function configureSessionStorage(newFileFieldIds) {
-    // ** Interfaces with session storage to correctly enforece file types across multiple pages
+    // ** Interfaces with session storage to correctly enforce file types across multiple pages
     // *
     const fileFieldsPerPage = sessionStorage.getItem("fileFieldsPerPage");
     if (fileFieldsPerPage === null) {
